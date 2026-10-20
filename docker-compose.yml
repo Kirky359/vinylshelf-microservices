@@ -1,0 +1,62 @@
+name: vinylshelf
+
+services:
+  consul:
+    image: hashicorp/consul:1.20
+    command: agent -dev -client=0.0.0.0 -ui
+    ports: ["8500:8500"]
+    networks: [appnet]
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports: ["5672:5672", "15672:15672"]
+    networks: [appnet]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  auth-service:
+    build: ./auth-service
+    networks: [appnet]
+    depends_on: &infra
+      consul: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+
+  catalog-service:          # stateless -> safe to scale: docker compose up -d --scale catalog-service=3
+    build: ./catalog-service
+    networks: [appnet]
+    depends_on:
+      consul: {condition: service_healthy}
+
+  collection-service:
+    build: ./collection-service
+    networks: [appnet]
+    depends_on: *infra
+
+  rating-service:
+    build: ./rating-service
+    networks: [appnet]
+    depends_on: *infra
+
+  analytics-consumer:
+    build: ./analytics-consumer
+    networks: [appnet]
+    depends_on: *infra
+
+  api-gateway:
+    build: ./api-gateway
+    ports: ["8080:8080"]
+    networks: [appnet]
+    depends_on:
+      consul: {condition: service_healthy}
+
+networks:
+  appnet:
+    driver: bridge
