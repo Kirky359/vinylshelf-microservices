@@ -32,9 +32,11 @@ curl -s -X POST $GW/collection-service/collection/add -H 'content-type: applicat
 step "5. Invariant: cannot complete before all tracks are played (expect 409)"
 curl -s -w '\nHTTP %{http_code}\n' -X POST $GW/collection-service/collection/$UID_/a1/complete
 
-step "6. Progress -> complete -> events collection.progress_updated / album_completed"
+step "6. Progress -> complete: starts a SAGA (CompletionPending), outbox -> RabbitMQ -> consumer confirms -> Completed"
 curl -s -X POST $GW/collection-service/collection/$UID_/a1/progress -H 'content-type: application/json' -d '{"tracks_played":5}' >/dev/null
 curl -s -X POST $GW/collection-service/collection/$UID_/a1/complete | j
+sleep 3
+curl -s $GW/collection-service/collection/$UID_/a1 | j
 
 step "7. Rate (rating -> collection sync check, then rating.created event)"
 curl -s -X POST $GW/rating-service/rating/rate -H 'content-type: application/json' -d '{"user_id":"'$UID_'","album_id":"a1","rating":9}' | j

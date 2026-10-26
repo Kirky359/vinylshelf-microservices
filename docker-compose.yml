@@ -35,9 +35,12 @@ services:
     depends_on:
       consul: {condition: service_healthy}
 
-  collection-service:
+  collection-service:       # own SQLite DB (outbox + saga_log) on a volume
     build: ./collection-service
     networks: [appnet]
+    volumes: [collection-data:/data]
+    environment:
+      SAGA_TIMEOUT_SECONDS: "20"
     depends_on: *infra
 
   rating-service:
@@ -45,9 +48,12 @@ services:
     networks: [appnet]
     depends_on: *infra
 
-  analytics-consumer:
+  analytics-consumer:       # own SQLite DB (inbox); every 3rd album_completed fails on purpose
     build: ./analytics-consumer
     networks: [appnet]
+    volumes: [analytics-data:/data]
+    environment:
+      FAIL_EVERY_N: "3"
     depends_on: *infra
 
   api-gateway:
@@ -56,6 +62,10 @@ services:
     networks: [appnet]
     depends_on:
       consul: {condition: service_healthy}
+
+volumes:
+  collection-data:
+  analytics-data:
 
 networks:
   appnet:
