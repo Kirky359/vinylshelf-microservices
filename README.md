@@ -1,4 +1,4 @@
-# VinylShelf microservices (lab 2 + lab 3)
+# VinylShelf microservices (lab 2 + lab 3 + lab 4)
 
 Stack: FastAPI, Consul (discovery), RabbitMQ (async events), Docker Compose.
 
@@ -15,6 +15,8 @@ Lab 3 (outbox / inbox / SAGA):
 collection-service keeps data, `outbox` and `saga_log` in SQLite; the outbox dispatcher publishes to RabbitMQ with confirms.
 `complete` starts a SAGA (status `CompletionPending`); analytics-consumer dedups via its `inbox`, fails every 3rd
 `album_completed` (`FAIL_EVERY_N`), and the coordinator compensates on DLQ message, timeout (`SAGA_TIMEOUT_SECONDS`) or failed outbox row.
+
+Lab 4 (AI agents: function calling, MCP, A2A) lives in [`ai-agents/`](ai-agents/README.md) and talks to the gateway on :8080.
 
 UIs: gateway http://localhost:8080/docs, Consul http://localhost:8500, RabbitMQ http://localhost:15672 (guest/guest).
 Only the stateless catalog-service can be scaled safely: auth/rating keep data in memory, collection/analytics use per-service SQLite.
