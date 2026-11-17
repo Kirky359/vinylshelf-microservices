@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
 from src.config import settings
 from src.discovery import chain, instances
 from src.gateway import constants, service
+from src.security.dependencies import gateway_policy
+from src.security.schemas import Principal
 
 router = APIRouter()
 
@@ -26,5 +28,6 @@ async def chain_endpoint(text: str = "hello", route: str = constants.DEFAULT_CHA
 
 # catch-all proxy: must be registered after every other route
 @router.api_route("/{service_name}/{path:path}", methods=["GET", "POST", "PUT", "DELETE"], tags=["proxy"])
-async def proxy(service_name: str, path: str, request: Request):
-    return await service.forward(service_name, path, request)
+async def proxy(service_name: str, path: str, request: Request,
+                principal: Principal | None = Depends(gateway_policy)):
+    return await service.forward(service_name, path, request, principal)

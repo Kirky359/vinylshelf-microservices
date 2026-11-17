@@ -84,7 +84,7 @@ class UserSessionService:
         try:
             return (await self._client.login(username, password))["user_id"]
         except ApiError as exc:
-            if exc.status_code != 401:
+            if exc.status_code != 401 or self._settings.keycloak_token_url:  # Keycloak users are not self-registered
                 raise
         await self._client.register(username, password)  # first run (or the auth-service lost its in-memory users)
         return (await self._client.login(username, password))["user_id"]

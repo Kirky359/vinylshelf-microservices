@@ -14,10 +14,10 @@ class FunctionCallingApplication:
     async def run(self) -> None:
         try:
             user_id = await self._container.user_session.ensure_user()
-            print(f"👤 Agent works on behalf of user {user_id}")
+            print(f"Agent works on behalf of user {user_id}")
             agent = self._container.agent(listener=ConsolePrinter())
             await ConsoleController(agent, user_id).run()
         except AgentError as exc:
-            sys.exit(f"❌ {exc.message}")
+            sys.exit(f"{exc.message}")
         finally:
             await self._container.close()

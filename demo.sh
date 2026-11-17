@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # End-to-end demo of VinylShelf microservices. Needs: docker compose up -d --build; curl; python3
 GW=${GW:-http://localhost:8080}
+
+# Lab 5: the gateway validates JWT access tokens, so every call below carries a Keycloak token
+for i in $(seq 60); do
+  TOKEN=$("$(dirname "$0")/keycloak/get_token.sh" 2>/dev/null) && [ -n "$TOKEN" ] && break
+  echo "waiting for Keycloak..."; sleep 3
+done
+[ -n "$TOKEN" ] || { echo "cannot get a token from Keycloak (docker compose ps keycloak)"; exit 1; }
+curl() { command curl -H "Authorization: Bearer $TOKEN" "$@"; }
 j() { python3 -m json.tool; }
 step() { printf '\n\033[1m### %s\033[0m\n' "$1"; }
 

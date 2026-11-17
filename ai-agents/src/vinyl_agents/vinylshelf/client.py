@@ -1,3 +1,5 @@
+import base64
+import json
 from typing import Any
 from urllib.parse import quote
 
@@ -11,6 +13,7 @@ class VinylShelfClient:
     """REST client of the lab 3 system. Everything goes through the api-gateway (routing + Consul discovery)."""
 
     def __init__(self, settings: Settings, transport: httpx.AsyncBaseTransport | None = None):
+        self._settings = settings
         self._http = httpx.AsyncClient(base_url=settings.gateway_url, timeout=settings.http_timeout_seconds,
                                        transport=transport)
 
@@ -40,8 +43,27 @@ class VinylShelfClient:
                                    json={"username": username, "password": password})
 
     async def login(self, username: str, password: str) -> dict:
+        if self._settings.keycloak_token_url:
+            return await self._login_keycloak(username, password)
         return await self._request("POST", "/auth-service/auth/login",
                                    json={"username": username, "password": password})
+
+    async def _login_keycloak(self, username: str, password: str) -> dict:
+        """OAuth2 password grant (dev client): the access token is sent with every request to the gateway."""
+        form = {"grant_type": "password", "client_id": self._settings.keycloak_client_id, "username": username,
+                "password": password, "scope": self._settings.oauth_scopes}
+        try:
+            async with httpx.AsyncClient(timeout=self._settings.http_timeout_seconds) as http:
+                response = await http.post(self._settings.keycloak_token_url, data=form)
+        except httpx.HTTPError as exc:
+            raise ApiError(503, f"authorization server is unreachable: {exc}") from exc
+        if response.status_code != 200:
+            raise ApiError(401, "keycloak rejected the credentials")
+        token = response.json()["access_token"]
+        self._http.headers["Authorization"] = f"Bearer {token}"
+        payload = token.split(".")[1]  # the gateway verifies the signature, the client only reads its own user id
+        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+        return {"user_id": claims["sub"], "token": token}
 
     # catalog-service
     async def search_albums(self, q: str) -> dict:

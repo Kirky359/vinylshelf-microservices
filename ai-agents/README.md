@@ -16,7 +16,7 @@ Python 3.11, class-based, layered (FastAPI stack).
     python3 -m venv .venv && source .venv/bin/activate
     pip install -e ".[dev]"
     cp .env.example .env                         # put GEMINI_API_KEY there (https://aistudio.google.com/apikey)
-    pytest                                       # 49 tests, no docker and no API key needed
+    pytest                                       # 51 tests, no docker and no API key needed
 
 The agents act as the user `AGENT_USERNAME` (registered on the first run).
 

@@ -56,12 +56,30 @@ services:
       FAIL_EVERY_N: "3"
     depends_on: *infra
 
-  api-gateway:
+  keycloak:                 # OAuth 2.0 / OpenID Connect authorization server (realm is imported on start)
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME: http://localhost:8081          # public issuer URL (browser, "iss" claim)
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"     # the gateway reaches it as http://keycloak:8080
+      KC_HTTP_ENABLED: "true"
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-github-client-id}          # third-party IdP (GitHub OAuth App), see README
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-github-client-secret}
+    volumes: ["./keycloak:/opt/keycloak/data/import:ro"]
+    ports: ["8081:8080"]
+    networks: [appnet]
+
+  api-gateway:              # validates JWT access tokens + scopes, answers CORS
     build: ./api-gateway
     ports: ["8080:8080"]
     networks: [appnet]
+    environment:
+      CORS_ORIGINS: "https://cad.kpi.ua"
     depends_on:
       consul: {condition: service_healthy}
+      keycloak: {condition: service_started}
 
 volumes:
   collection-data:

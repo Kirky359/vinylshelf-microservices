@@ -1,0 +1,220 @@
+{
+  "realm": "vinylshelf",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 900,
+  "bruteForceProtected": true,
+  "clientScopes": [
+    {
+      "name": "basic",
+      "description": "sub claim",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "sub",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "config": {
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "profile",
+      "description": "username claim",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "catalog:read",
+      "description": "Read the album catalog",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "collection:read",
+      "description": "Read the user's collection",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "collection:write",
+      "description": "Modify the user's collection",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "rating:read",
+      "description": "Read ratings",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "rating:write",
+      "description": "Rate albums",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "analytics:read",
+      "description": "Read the analytics dashboard",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "vinylshelf-web",
+      "name": "VinylShelf web / Swagger UI",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:8080/docs/oauth2-redirect",
+        "https://cad.kpi.ua/*",
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:8080",
+        "https://cad.kpi.ua",
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "basic",
+        "profile"
+      ],
+      "optionalClientScopes": [
+        "catalog:read",
+        "collection:read",
+        "collection:write",
+        "rating:read",
+        "rating:write",
+        "analytics:read"
+      ]
+    },
+    {
+      "clientId": "vinylshelf-cli",
+      "name": "CLI, demo scripts and AI agents (password grant, dev only)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "defaultClientScopes": [
+        "basic",
+        "profile"
+      ],
+      "optionalClientScopes": [
+        "catalog:read",
+        "collection:read",
+        "collection:write",
+        "rating:read",
+        "rating:write",
+        "analytics:read"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "artem",
+      "email": "artem@vinylshelf.local",
+      "firstName": "artem",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "artem123",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "artem-mfa",
+      "email": "artem-mfa@vinylshelf.local",
+      "firstName": "artem-mfa",
+      "lastName": "User",
+      "enabled": true,
+      "emailVerified": true,
+      "requiredActions": [
+        "CONFIGURE_TOTP"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "artem123",
+          "temporary": false
+        }
+      ]
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "github",
+      "displayName": "Login with GitHub",
+      "providerId": "github",
+      "enabled": true,
+      "trustEmail": false,
+      "storeToken": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "${GITHUB_CLIENT_ID:github-client-id}",
+        "clientSecret": "${GITHUB_CLIENT_SECRET:github-client-secret}",
+        "defaultScope": "user:email",
+        "syncMode": "IMPORT"
+      }
+    }
+  ]
+}

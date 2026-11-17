@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     agent_username: str = "artem@pm.me"
     agent_password: str = "change-me"
     default_user_id: str | None = None  # skips the login step
+    # Lab 5: when set, the agents log in to Keycloak (password grant of the dev client) and send a Bearer token
+    keycloak_token_url: str | None = None  # e.g. http://localhost:8081/realms/vinylshelf/protocol/openid-connect/token
+    keycloak_client_id: str = "vinylshelf-cli"
+    oauth_scopes: str = ("openid catalog:read collection:read collection:write rating:read rating:write "
+                         "analytics:read")
 
     # LLM
     gemini_api_key: str | None = None
