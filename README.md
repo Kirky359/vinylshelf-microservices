@@ -1,4 +1,4 @@
-# VinylShelf microservices (lab 2 + lab 3 + lab 4 + lab 5)
+# VinylShelf microservices
 
 Stack: FastAPI, Consul (discovery), RabbitMQ (async events), Docker Compose.
 
