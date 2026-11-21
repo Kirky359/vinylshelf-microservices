@@ -6,6 +6,7 @@ import pika
 
 from src.config import settings
 from src.messaging import constants
+from src.observability import current_trace_id
 
 
 def declare(channel):
@@ -22,7 +23,8 @@ def declare(channel):
 
 
 def publish(routing_key: str, payload: dict) -> None:
-    body = json.dumps({**payload, "event": routing_key, "ts": datetime.now(timezone.utc).isoformat()})
+    body = json.dumps({**payload, "event": routing_key, "ts": datetime.now(timezone.utc).isoformat(),
+                       "trace_id": current_trace_id()})
     for attempt in range(5):
         try:
             conn = pika.BlockingConnection(pika.ConnectionParameters(settings.rabbit_host))

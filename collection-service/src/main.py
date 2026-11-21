@@ -6,6 +6,7 @@ from src import database
 from src.collection.router import router as collection_router
 from src.config import settings
 from src.discovery import deregister, register
+from src.observability import setup_observability
 from src.models import SCHEMA
 from src.outbox.dependencies import get_outbox_dispatcher
 from src.outbox.router import router as outbox_router
@@ -29,6 +30,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Collection Service (Collection Management)", lifespan=lifespan)
+setup_observability(app, settings.service_name)
 app.include_router(system_router)
 # the saga router holds /collection/rollback, so it goes before the parametrised /collection/{user_id}/... routes
 app.include_router(saga_router)

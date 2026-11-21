@@ -1,0 +1,28 @@
+groups:
+  - name: vinylshelf-critical
+    rules:
+      - alert: ServiceDown
+        expr: consul_healthy_instances == 0
+        for: 15s
+        labels: {severity: critical}
+        annotations:
+          service: "{{ $labels.target }}"
+          summary: "No healthy instances of {{ $labels.target }} in Consul"
+
+      - alert: HighLatencyP99
+        expr: |
+          histogram_quantile(0.99, sum by (le, service) (
+            rate(http_request_duration_seconds_bucket{route!="unmatched"}[1m]))) > 0.5
+        for: 30s
+        labels: {severity: warning}
+        annotations:
+          service: "{{ $labels.service }}"
+          summary: "p99 latency of {{ $labels.service }} is {{ $value | humanizeDuration }} (threshold 500 ms)"
+
+      - alert: EventLagHigh
+        expr: rabbitmq_detailed_queue_messages_ready{queue="analytics.events"} > 0
+        for: 10s
+        labels: {severity: critical}
+        annotations:
+          service: "analytics-service"
+          summary: "Replication lag over 10 s: {{ $value }} event(s) wait in analytics.events, the consumer does not take them"

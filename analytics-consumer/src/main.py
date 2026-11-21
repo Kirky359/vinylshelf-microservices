@@ -7,6 +7,7 @@ from src.analytics import consumer
 from src.analytics.router import router as analytics_router
 from src.config import settings
 from src.discovery import deregister, register
+from src.observability import setup_observability
 from src.inbox import service as inbox_service
 from src.inbox.router import router as inbox_router
 from src.system.router import router as system_router
@@ -24,6 +25,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Analytics Service (consumer + dashboard)", lifespan=lifespan)
+setup_observability(app, settings.service_name)
 app.include_router(system_router)
 app.include_router(inbox_router)
 app.include_router(analytics_router)

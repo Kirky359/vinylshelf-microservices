@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from src.auth.router import router as auth_router
 from src.config import settings
 from src.discovery import deregister, register
+from src.observability import setup_observability
 from src.system.router import router as system_router
 
 
@@ -16,5 +17,6 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Auth Service (User Management)", lifespan=lifespan)
+setup_observability(app, settings.service_name)
 app.include_router(system_router)
 app.include_router(auth_router)

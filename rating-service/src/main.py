@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from src.rating.router import router as rating_router
 from src.config import settings
 from src.discovery import deregister, register
+from src.observability import setup_observability
 from src.system.router import router as system_router
 
 
@@ -16,5 +17,6 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Rating Service (Rating Management)", lifespan=lifespan)
+setup_observability(app, settings.service_name)
 app.include_router(system_router)
 app.include_router(rating_router)

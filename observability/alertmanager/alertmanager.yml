@@ -1,0 +1,12 @@
+route:
+  receiver: n8n
+  group_by: [alertname, service]
+  group_wait: 5s
+  group_interval: 30s
+  repeat_interval: 1h
+
+receivers:
+  - name: n8n
+    webhook_configs:
+      - url: http://n8n:5678/webhook/alertmanager
+        send_resolved: true

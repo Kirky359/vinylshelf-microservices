@@ -10,6 +10,7 @@ from src import database as db
 from src.config import settings
 from src.messaging import constants as mq_constants
 from src.messaging.broker import declare
+from src.observability import current_trace_id
 from src.outbox import constants
 from src.utils import now
 
@@ -18,7 +19,8 @@ class OutboxService:
     def add_event(self, conn, event_type: str, payload: dict, saga_id: str | None = None) -> str:
         """Write an event into the outbox using the caller's transaction (same commit as the data change)."""
         msg_id = str(uuid.uuid4())
-        body = {"message_id": msg_id, "saga_id": saga_id, **payload, "event": event_type, "ts": now()}
+        body = {"message_id": msg_id, "saga_id": saga_id, **payload, "event": event_type, "ts": now(),
+                "trace_id": current_trace_id()}
         conn.execute(
             "INSERT INTO outbox (id, saga_id, event_type, payload, created_at) VALUES (?,?,?,?,?)",
             (msg_id, saga_id, event_type, json.dumps(body), now()),

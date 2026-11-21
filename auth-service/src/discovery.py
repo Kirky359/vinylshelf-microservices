@@ -5,6 +5,7 @@ import socket
 import httpx
 
 from src.config import settings
+from src.observability import count_upstream, outgoing_headers
 
 CONSUL_URL = settings.consul_url
 HOSTNAME = socket.gethostname()
@@ -71,6 +72,8 @@ async def call(name, method, path, **kwargs):
         for i in range(len(found)):
             inst = found[(start + i) % len(found)]
             try:
+                kwargs["headers"] = {**kwargs.get("headers", {}), **outgoing_headers()}
+                count_upstream(settings.service_name, name, inst["id"])
                 return await client.request(method, inst["url"] + path, **kwargs)
             except httpx.TransportError as e:
                 error = e

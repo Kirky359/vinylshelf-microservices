@@ -1,10 +1,12 @@
 """RabbitMQ consumer with Transactional Inbox; confirms SAGA steps in collection-service."""
 import asyncio
 import json
+import logging
 import threading
 import time
 
 import pika
+from prometheus_client import Counter
 
 from src.analytics import service
 from src.config import settings
@@ -12,7 +14,10 @@ from src.discovery import call
 from src.inbox import service as inbox_service
 from src.messaging import constants as mq_constants
 from src.messaging.broker import declare
+from src.observability import bind_trace, log_event
 
+EVENTS = Counter("analytics_events_total", "Events received from RabbitMQ", ["event", "result"])
+log = logging.getLogger("analytics")
 _stop = threading.Event()
 _loop: asyncio.AbstractEventLoop | None = None
 
@@ -33,7 +38,7 @@ def confirm_saga(saga_id: str) -> bool:
             fut = asyncio.run_coroutine_threadsafe(
                 call("collection-service", "POST", "/saga/confirm", json={"saga_id": saga_id}), _loop)
             r = fut.result(timeout=10)
-            print(f"[analytics] saga {saga_id} confirm -> {r.status_code} {r.json()}", flush=True)
+            log_event(log, "saga confirm", saga_id=saga_id, status=r.status_code)
             return r.status_code == 200
         except Exception as e:
             print(f"[analytics] confirm retry {attempt + 1}/3: {e!r}", flush=True)
@@ -43,13 +48,19 @@ def confirm_saga(saga_id: str) -> bool:
 
 def callback(ch, method, properties, body):
     event = json.loads(body)
+    with bind_trace(event.get("trace_id")):
+        _handle(ch, method, event)
+
+
+def _handle(ch, method, event):
     mid = event.get("message_id")
     # only the event that started a saga needs a confirmation (not e.g. album_completion_cancelled)
     saga_id = event.get("saga_id") if event["event"] == "collection.album_completed" else None
-    print(f"[analytics] received {event['event']}: {event}", flush=True)
+    log_event(log, f"received {event['event']}", event=event["event"], message_id=mid, saga_id=saga_id)
     if mid and inbox_service.get(mid):  # Transactional Inbox: this message_id was already handled
         inbox_service.mark_duplicate(mid)
-        print(f"[inbox] duplicate message detected: {mid}", flush=True)
+        EVENTS.labels(event["event"], "duplicate").inc()
+        log_event(log, "duplicate message detected", logging.WARNING, message_id=mid)
         if saga_id:
             confirm_saga(saga_id)  # confirmation is idempotent, the first one may have been lost
         ch.basic_ack(delivery_tag=method.delivery_tag)
@@ -57,14 +68,16 @@ def callback(ch, method, properties, body):
     try:
         service.handle(event)
     except Exception as e:
-        print(f"[analytics] failed to process message {mid}: {e}", flush=True)
+        EVENTS.labels(event["event"], "failed").inc()
+        log_event(log, f"failed to process message: {e}", logging.ERROR, message_id=mid)
         if mid:
             inbox_service.save(event, "failed")
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)  # -> dead letter exchange -> DLQ
         return
     if mid:
         inbox_service.save(event, "processed")
-    print(f"[analytics] event processed and saved to inbox ({mid})", flush=True)
+    EVENTS.labels(event["event"], "processed").inc()
+    log_event(log, "event processed and saved to inbox", message_id=mid)
     if saga_id and not confirm_saga(saga_id):
         ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)  # redelivery; inbox turns it into a duplicate
         time.sleep(1)

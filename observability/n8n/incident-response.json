@@ -1,0 +1,146 @@
+{
+ "id": "vinylshelfIncident01",
+ "name": "VinylShelf incident response",
+ "active": true,
+ "nodes": [
+  {
+   "parameters": {
+    "httpMethod": "POST",
+    "path": "alertmanager",
+    "options": {}
+   },
+   "name": "Alertmanager webhook",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    0,
+    0
+   ],
+   "webhookId": "alertmanager-webhook"
+  },
+  {
+   "parameters": {
+    "jsCode": "const body = $input.first().json.body || {};\nreturn (body.alerts || []).map(a => ({ json: {\n  status: a.status,\n  alertname: a.labels.alertname,\n  severity: a.labels.severity || 'warning',\n  service: a.annotations.service || a.labels.service || a.labels.target || 'unknown',\n  summary: a.annotations.summary || a.labels.alertname,\n  startsAt: a.startsAt,\n  fingerprint: a.fingerprint,\n}}));"
+   },
+   "name": "Split alerts",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    220,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "mode": "runOnceForEachItem",
+    "jsCode": "const alert = $input.item.json;\nconst fs = require('fs');\nconst FILE = '/home/node/.n8n/incidents.json';\nlet store = { incidents: {}, counter: 0 };\ntry { store = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) { /* first incident */ }\nlet ticket = store.incidents[alert.fingerprint];\nif (alert.status === 'firing') {\n  if (!ticket || ticket.status === 'resolved') {\n    store.counter += 1;\n    ticket = { id: 'INC-' + String(store.counter).padStart(4, '0'), opened: alert.startsAt };\n  }\n  Object.assign(ticket, {\n    status: 'open', alertname: alert.alertname, severity: alert.severity, service: alert.service,\n    title: `[${alert.severity.toUpperCase()}] ${alert.alertname} on ${alert.service}`, summary: alert.summary,\n  });\n} else if (ticket) {\n  ticket.status = 'resolved'; ticket.resolved = new Date().toISOString();\n}\nif (ticket) store.incidents[alert.fingerprint] = ticket;\nfs.writeFileSync(FILE, JSON.stringify(store));\nreturn { json: { ...(ticket || {}), notify: alert.status === 'firing' && !!$env.SLACK_WEBHOOK_URL } };"
+   },
+   "name": "Create incident ticket",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    440,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "typeValidation": "loose"
+     },
+     "conditions": [
+      {
+       "id": "n",
+       "leftValue": "={{ $json.notify }}",
+       "rightValue": true,
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    }
+   },
+   "name": "Slack configured?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2.2,
+   "position": [
+    660,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "={{ $env.SLACK_WEBHOOK_URL }}",
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ text: `*${$json.id}* ${$json.title}\\n${$json.summary}\\nService: ${$json.service}` }) }}",
+    "options": {}
+   },
+   "name": "Post ticket to Slack",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    880,
+    -80
+   ],
+   "onError": "continueRegularOutput"
+  }
+ ],
+ "connections": {
+  "Alertmanager webhook": {
+   "main": [
+    [
+     {
+      "node": "Split alerts",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Split alerts": {
+   "main": [
+    [
+     {
+      "node": "Create incident ticket",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Create incident ticket": {
+   "main": [
+    [
+     {
+      "node": "Slack configured?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Slack configured?": {
+   "main": [
+    [
+     {
+      "node": "Post ticket to Slack",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    []
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1"
+ },
+ "pinData": {}
+}

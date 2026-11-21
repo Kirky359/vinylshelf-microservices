@@ -32,6 +32,8 @@ services:
   catalog-service:          # stateless -> safe to scale: docker compose up -d --scale catalog-service=3
     build: ./catalog-service
     networks: [appnet]
+    environment:
+      CHAOS_DELAY_MS: ${CATALOG_DELAY_MS:-0} 
     depends_on:
       consul: {condition: service_healthy}
 
@@ -77,11 +79,75 @@ services:
     networks: [appnet]
     environment:
       CORS_ORIGINS: "https://cad.kpi.ua"
+      CHAOS_DELAY_MS: ${GATEWAY_DELAY_MS:-0}
     depends_on:
       consul: {condition: service_healthy}
       keycloak: {condition: service_started}
 
+  # lab 6: observability
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--web.enable-lifecycle"]
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+    ports: ["9090:9090"]
+    networks: [appnet]
+    depends_on: [consul, alertmanager]
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    volumes: ["./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro"]
+    ports: ["9093:9093"]
+    networks: [appnet]
+
+  loki:
+    image: grafana/loki:3.2.1
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes: ["./observability/loki/loki.yml:/etc/loki/loki.yml:ro"]
+    ports: ["3100:3100"]
+    networks: [appnet]
+
+  promtail:
+    image: grafana/promtail:3.2.1
+    command: ["-config.file=/etc/promtail/promtail.yml"]
+    volumes:
+      - ./observability/promtail/promtail.yml:/etc/promtail/promtail.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [appnet]
+    depends_on: [loki]
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
+    networks: [appnet]
+    depends_on: [prometheus, loki]
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:1.70.3
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - n8n import:workflow --separate --input=/workflows; n8n update:workflow --all --active=true; exec n8n start
+    environment:
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_SECURE_COOKIE: "false"
+      NODE_FUNCTION_ALLOW_BUILTIN: fs
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+    volumes: ["./observability/n8n:/workflows:ro", "n8n-data:/home/node/.n8n"]
+    ports: ["5678:5678"]
+    networks: [appnet]
+    depends_on: [alertmanager]
+
 volumes:
+  n8n-data:
   collection-data:
   analytics-data:
 
